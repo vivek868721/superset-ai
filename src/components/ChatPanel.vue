@@ -86,7 +86,7 @@
 
 <script>
 import { store } from '../store.js';
-import { api } from '../services/api.js';
+import { askAI } from '../services/api.js';
 
 export default {
   name: 'ChatPanel',
@@ -129,13 +129,14 @@ export default {
 
       try {
         // Call API
-        const response = await api.ask(text);
+        const response = await askAI(text);
 
         // Add chart to dashboard
         const chartId = Date.now().toString();
         this.store.addChart({
           id: chartId,
-          ...response
+          ...response,
+          title: text // Use the user's query as the title
         });
 
         // Update SQL
@@ -144,14 +145,15 @@ export default {
         // Add AI response
         this.store.addMessage({
           role: 'ai',
-          content: `I've created a ${response.chartType} chart for "${response.title}" based on your request.`,
+          content: `I've created a ${response.chartType} chart for you.`,
           chartGenerated: true
         });
 
       } catch (error) {
+        console.error('API Error:', error);
         this.store.addMessage({
           role: 'ai',
-          content: 'Sorry, I encountered an error while processing your request.'
+          content: 'Sorry, I encountered an error while processing your request: ' + error.message
         });
       } finally {
         this.isLoading = false;
