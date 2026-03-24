@@ -5,10 +5,7 @@ const genAI = new GoogleGenAI({
 });
 
 function cleanSQL(sql) {
-    return sql
-        .replace(/```sql/g, "")
-        .replace(/```/g, "")
-        .trim();
+    return sql.replace(/```sql/g, "").replace(/```/g, "").trim();
 }
 
 async function generateSQL(query) {
@@ -23,35 +20,38 @@ Table birth_names:
 - num (integer)
 - year (integer)
 
-Rules:
-- Only use birth_names
+STRICT RULES:
 - Only SELECT queries
-- Use correct columns only
-- Use GROUP BY when aggregating
+- Always include SUM(num) when aggregating
+- Always alias SUM(num) as total
+- GROUP BY required for aggregation
+- ORDER BY must use selected column (total)
 - No explanation
-- No markdown
+- Return only SQL
 
 User query:
 "${query}"
 `;
 
         const response = await genAI.models.generateContent({
-            model: "gemini-1.5-flash-latest",
+            model: "gemini-2.5-flash",
             contents: prompt
         });
 
-        const rawSQL = response.text;
-        const sql = cleanSQL(rawSQL);
+        const raw =
+            response.candidates?.[0]?.content?.parts?.[0]?.text || "";
+
+        const sql = cleanSQL(raw);
 
         console.log("🤖 Generated SQL:", sql);
 
         return sql;
 
-    } catch (err) {
-        console.error("⚠️ Gemini failed, using fallback");
+    } catch (e) {
+        console.error("❌ Gemini failed:", e.message);
 
-        // ✅ fallback SQL
-        return "SELECT name, SUM(num) FROM birth_names GROUP BY name";
+        // 🔥 Safe fallback
+        return "SELECT name, SUM(num) as total FROM birth_names GROUP BY name ORDER BY total DESC LIMIT 5";
     }
 }
 
