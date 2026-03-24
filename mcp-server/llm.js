@@ -41,16 +41,11 @@ User query:
         const raw =
             response.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
-        const sql = cleanSQL(raw);
-
-        console.log("🤖 Generated SQL:", sql);
-
-        return sql;
+        return cleanSQL(raw);
 
     } catch (e) {
-        console.error("❌ Gemini failed:", e.message);
+        console.error("❌ Gemini fallback");
 
-        // 🔥 Safe fallback
         return "SELECT name, SUM(num) as total FROM birth_names GROUP BY name ORDER BY total DESC LIMIT 5";
     }
 }

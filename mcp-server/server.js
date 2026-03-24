@@ -7,7 +7,12 @@ app.use(cors());
 app.use(express.json());
 
 const { generateSQL } = require('./llm');
-const { runSQL } = require('./superset');
+const {
+  runSQL,
+  createChart,
+  createDashboard,
+  addChartToDashboard
+} = require('./superset');
 
 app.post('/ask', async (req, res) => {
   try {
@@ -17,48 +22,49 @@ app.post('/ask', async (req, res) => {
       return res.status(400).json({ error: "Query required" });
     }
 
-    // 🧠 1. Generate SQL
+    // 🧠 Generate SQL
     let sql = await generateSQL(query);
 
-    console.log("🤖 Raw SQL:", sql);
+    console.log("🤖 SQL:", sql);
 
-    // 🔥 2. VALIDATION LAYER (VERY IMPORTANT)
-
-    // Only SELECT allowed
+    // 🔒 Safety
     if (!sql.toLowerCase().startsWith("select")) {
-      throw new Error("Only SELECT queries allowed");
+      throw new Error("Only SELECT allowed");
     }
 
-    // Fix common Gemini mistake
-    if (sql.includes("SUM(") && !sql.toLowerCase().includes("sum(num)")) {
-      console.log("⚠️ Fixing invalid SUM usage...");
-      sql = "SELECT name, SUM(num) as total FROM birth_names GROUP BY name ORDER BY total DESC LIMIT 5";
-    }
-
-    // Ensure SUM present for aggregation queries
-    if (!sql.toLowerCase().includes("sum(num)")) {
-      console.log("⚠️ Forcing safe SQL...");
-      sql = "SELECT name, SUM(num) as total FROM birth_names GROUP BY name ORDER BY total DESC LIMIT 5";
-    }
-
-    // Add LIMIT if missing
     if (!sql.toLowerCase().includes("limit")) {
       sql += " LIMIT 1000";
     }
 
     console.log("📌 Final SQL:", sql);
 
-    // 🧠 3. Execute in Superset
-    const data = await runSQL(sql);
-
-    // 📊 4. Chart type detection
+    // 📊 Chart type detection (FIX for Vue)
     let chartType = "bar";
-    if (sql.toLowerCase().includes("year")) chartType = "line";
+    if (sql.toLowerCase().includes("year")) {
+      chartType = "line";
+    }
+
+    // 🧠 Run SQL
+    const { data, token } = await runSQL(sql);
+
+// 1. Create chart
+    const chartId = await createChart(token, query);
+
+// 2. Create dashboard
+    const dashboardId = await createDashboard(token);
+
+// 3. Attach chart (THIS DOES EVERYTHING NOW)
+    await addChartToDashboard(dashboardId, chartId, token);
+
+    const dashboardUrl = `http://localhost:8088/superset/dashboard/${dashboardId}/`;
 
     res.json({
       sql,
       data,
-      chartType
+      chartType,
+      chartId,
+      dashboardId,
+      dashboardUrl
     });
 
   } catch (err) {

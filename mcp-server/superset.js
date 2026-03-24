@@ -5,6 +5,9 @@ const USERNAME = process.env.SUPERSET_USERNAME || 'admin';
 const PASSWORD = process.env.SUPERSET_PASSWORD || 'admin';
 const DATABASE_ID = process.env.SUPERSET_DATABASE_ID || 1;
 
+// ✅ Your dataset ID
+const DATASET_ID = 17;
+
 // 🔐 Login
 async function login() {
     const res = await axios.post(`${SUPERSET_URL}/api/v1/security/login`, {
@@ -27,7 +30,7 @@ async function runSQL(sql) {
             {
                 database_id: parseInt(DATABASE_ID),
                 sql: sql,
-                schema: "public",     // 🔥 required
+                schema: "public",
                 runAsync: false,
                 expand_data: true,
                 queryLimit: 1000
@@ -40,7 +43,10 @@ async function runSQL(sql) {
             }
         );
 
-        return res.data.data || res.data.result;
+        return {
+            data: res.data.data || res.data.result,
+            token
+        };
 
     } catch (error) {
         console.error("❌ QUERY ERROR:", error.response?.data || error.message);
@@ -48,4 +54,126 @@ async function runSQL(sql) {
     }
 }
 
-module.exports = { runSQL };
+// 📊 Create Chart
+async function createChart(token, query) {
+    let vizType = "pie";
+
+    if (query.toLowerCase().includes("year")) {
+        vizType = "line";
+    }
+
+    const params = {
+        datasource: `${DATASET_ID}__table`,
+        viz_type: vizType,
+        groupby: ["name"],
+        metrics: ["sum__num"],
+        all_columns_x: ["name"],
+        x_axis: "name",
+        y_axis: ["sum__num"],
+        row_limit: 1000
+    };
+
+    const res = await axios.post(
+        `${SUPERSET_URL}/api/v1/chart/`,
+        {
+            slice_name: "AI Generated Chart",
+            viz_type: vizType,
+            datasource_id: DATASET_ID,
+            datasource_type: "table",
+            params: JSON.stringify(params)
+        },
+        {
+            headers: {
+                Authorization: `Bearer ${token}`
+            }
+        }
+    );
+
+    return res.data.id;
+}
+
+// 📊 Create Dashboard
+async function createDashboard(token) {
+    const res = await axios.post(
+        `${SUPERSET_URL}/api/v1/dashboard/`,
+        {
+            dashboard_title: "AI Generated Dashboard"
+        },
+        {
+            headers: {
+                Authorization: `Bearer ${token}`
+            }
+        }
+    );
+
+    return res.data.id;
+}
+
+// 🔥 Attach chart properly (FINAL FIX)
+async function addChartToDashboard(dashboardId, chartId, token) {
+    const position_json = {
+        ROOT_ID: {
+            id: "ROOT_ID",
+            type: "ROOT",
+            children: ["GRID_ID"]
+        },
+        GRID_ID: {
+            id: "GRID_ID",
+            type: "GRID",
+            children: ["ROW_ID"]
+        },
+        ROW_ID: {
+            id: "ROW_ID",
+            type: "ROW",
+            children: ["COLUMN_ID"]
+        },
+        COLUMN_ID: {
+            id: "COLUMN_ID",
+            type: "COLUMN",
+            children: [`CHART-${chartId}`],
+            meta: {
+                width: 12,
+                background: "transparent"
+            }
+        },
+        [`CHART-${chartId}`]: {
+            id: `CHART-${chartId}`,
+            type: "CHART",
+            children: [],
+            meta: {
+                chartId: chartId,
+                sliceName: "AI Chart",
+                width: 12,
+                height: 50
+            }
+        }
+    };
+
+    const json_metadata = {
+        chart_configuration: {
+            [chartId]: {
+                id: chartId
+            }
+        }
+    };
+
+    await axios.put(
+        `${SUPERSET_URL}/api/v1/dashboard/${dashboardId}`,
+        {
+            position_json: JSON.stringify(position_json),
+            json_metadata: JSON.stringify(json_metadata)
+        },
+        {
+            headers: {
+                Authorization: `Bearer ${token}`
+            }
+        }
+    );
+}
+
+module.exports = {
+    runSQL,
+    createChart,
+    createDashboard,
+    addChartToDashboard
+};
