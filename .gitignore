@@ -16,6 +16,7 @@ dist-ssr
 .vscode/*
 .env
 •.env
+mcp-server/.env
 !.vscode/extensions.json
 .idea
 .DS_Store
