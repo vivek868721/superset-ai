@@ -16,34 +16,42 @@ async function generateSQL(query) {
         const prompt = `
 You are a SQL expert.
 
-Table: orders(id, amount, region, created_at)
+Database schema:
+Table birth_names:
+- name (text)
+- gender (text)
+- num (integer)
+- year (integer)
 
 Rules:
+- Only use birth_names
 - Only SELECT queries
+- Use correct columns only
+- Use GROUP BY when aggregating
 - No explanation
 - No markdown
 
-Convert this:
+User query:
 "${query}"
 `;
 
         const response = await genAI.models.generateContent({
-            model: "gemini-1.5-flash-latest", // try this, fallback if needed
+            model: "gemini-1.5-flash-latest",
             contents: prompt
         });
 
         const rawSQL = response.text;
         const sql = cleanSQL(rawSQL);
 
-        console.log("Generated SQL:", sql);
+        console.log("🤖 Generated SQL:", sql);
 
         return sql;
 
-    } catch (e) {
-        console.error("Error in generateSQL:", e);
+    } catch (err) {
+        console.error("⚠️ Gemini failed, using fallback");
 
-        // 🔥 fallback so your app doesn’t break
-        return "SELECT region, SUM(amount) FROM orders GROUP BY region";
+        // ✅ fallback SQL
+        return "SELECT name, SUM(num) FROM birth_names GROUP BY name";
     }
 }
 

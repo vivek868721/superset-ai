@@ -1,5 +1,4 @@
 const express = require('express');
-const axios = require('axios');
 const cors = require('cors');
 require('dotenv').config();
 
@@ -14,48 +13,49 @@ app.post('/ask', async (req, res) => {
   try {
     const userQuery = req.body.query;
 
-    // 1. Generate SQL
-    const sql = await generateSQL(userQuery);
-
-    // SQL Safety
-    if (!sql.toLowerCase().startsWith("select")) {
-      throw new Error("Only SELECT allowed");
+    if (!userQuery) {
+      return res.status(400).json({ error: "Query is required" });
     }
 
-    // Add LIMIT
-    const finalSql = sql + " LIMIT 1000";
+    // 1. Generate SQL (AI or fallback)
+    let sql = await generateSQL(userQuery);
 
-    // 2. Login Superset
+    // 2. Safety check
+    if (!sql.toLowerCase().startsWith("select")) {
+      throw new Error("Only SELECT queries allowed");
+    }
+
+    // 3. Add LIMIT if missing
+    if (!sql.toLowerCase().includes("limit")) {
+      sql += " LIMIT 1000";
+    }
+
+    // 4. Login to Superset
     const token = await login();
 
-    // 3. Run SQL
-    let data;
-    try {
-        data = await runSQL(finalSql, token);
-    } catch (error) {
-        console.error("Error running SQL:", error.response ? error.response.data : error.message);
-        return res.status(400).json({ error: "Error executing SQL query.", details: error.response ? error.response.data : null });
-    }
+    // 5. Execute SQL
+    const data = await runSQL(sql, token);
 
-
-    // 4. Decide Chart Type
+    // 6. Chart detection
     let chartType = "bar";
-    if (sql.toLowerCase().includes("date") || sql.toLowerCase().includes("created_at")) {
-        chartType = "line";
-    }
+    if (sql.toLowerCase().includes("year")) chartType = "line";
 
     res.json({
-      sql: finalSql,
+      sql,
       data,
       chartType
     });
 
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Something went wrong" });
+    console.error("❌ Error:", err.message);
+
+    res.status(400).json({
+      error: "Something went wrong",
+      details: err.message
+    });
   }
 });
 
 app.listen(3000, () => {
-  console.log('MCP Server running on port 3000');
+  console.log('🚀 MCP Server running on port 3000');
 });
