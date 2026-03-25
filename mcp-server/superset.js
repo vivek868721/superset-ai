@@ -55,29 +55,55 @@ async function runSQL(sql) {
 }
 
 // 📊 Create Chart
-async function createChart(token, query) {
-    let vizType = "pie";
+async function createChart(token, config) {
+    const { chartType, groupby, metric } = config;
 
-    if (query.toLowerCase().includes("year")) {
-        vizType = "line";
-    }
-
-    const params = {
+    let params = {
         datasource: `${DATASET_ID}__table`,
-        viz_type: vizType,
-        groupby: ["name"],
-        metrics: ["sum__num"],
-        all_columns_x: ["name"],
-        x_axis: "name",
-        y_axis: ["sum__num"],
+        viz_type: chartType,
         row_limit: 1000
     };
+
+    // 🥧 PIE
+    if (chartType === "pie") {
+        params = {
+            datasource: `${DATASET_ID}__table`,
+            viz_type: "pie",
+            groupby: groupby,
+            metric: metric,
+            row_limit: 1000
+        };
+    }
+
+    // 📊 BAR
+    if (chartType === "bar") {
+        params = {
+            datasource: `${DATASET_ID}__table`,
+            viz_type: "bar",
+            groupby: groupby,
+            metrics: [metric],
+            x_axis: groupby[0],
+            row_limit: 1000
+        };
+    }
+
+    // 📈 LINE
+    if (chartType === "line") {
+        params = {
+            datasource: `${DATASET_ID}__table`,
+            viz_type: "line",
+            groupby: groupby,
+            metrics: [metric],
+            x_axis: groupby[0],
+            row_limit: 1000
+        };
+    }
 
     const res = await axios.post(
         `${SUPERSET_URL}/api/v1/chart/`,
         {
-            slice_name: "AI Generated Chart",
-            viz_type: vizType,
+            slice_name: `AI ${chartType} Chart`,
+            viz_type: chartType,
             datasource_id: DATASET_ID,
             datasource_type: "table",
             params: JSON.stringify(params)

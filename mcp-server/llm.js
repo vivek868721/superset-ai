@@ -4,32 +4,35 @@ const genAI = new GoogleGenAI({
     apiKey: process.env.GEMINI_API_KEY
 });
 
-function cleanSQL(sql) {
-    return sql.replace(/```sql/g, "").replace(/```/g, "").trim();
+function cleanJSON(text) {
+    return text.replace(/```json/g, "").replace(/```/g, "").trim();
 }
 
-async function generateSQL(query) {
+async function generateAIConfig(query) {
     try {
         const prompt = `
-You are a SQL expert.
+You are an AI analytics engine.
 
-Database schema:
-Table birth_names:
-- name (text)
-- gender (text)
-- num (integer)
-- year (integer)
+Table: birth_names(name, gender, num, year)
 
-STRICT RULES:
-- Only SELECT queries
-- Always include SUM(num) when aggregating
-- Always alias SUM(num) as total
-- GROUP BY required for aggregation
-- ORDER BY must use selected column (total)
-- No explanation
-- Return only SQL
+Return ONLY JSON:
 
-User query:
+{
+  "sql": "...",
+  "chartType": "bar | line | pie",
+  "groupby": ["column"],
+  "metric": "sum__num"
+}
+
+Rules:
+- Use SUM(num) as metric
+- Alias SUM(num) as total
+- If user asks distribution → pie chart
+- If trend or time → line chart
+- Else → bar chart
+- Respect user request (if user says pie → pie)
+
+User Query:
 "${query}"
 `;
 
@@ -41,13 +44,22 @@ User query:
         const raw =
             response.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
-        return cleanSQL(raw);
+        const cleaned = cleanJSON(raw);
+
+        const parsed = JSON.parse(cleaned);
+
+        return parsed;
 
     } catch (e) {
-        console.error("❌ Gemini fallback");
+        console.error("❌ AI fallback");
 
-        return "SELECT name, SUM(num) as total FROM birth_names GROUP BY name ORDER BY total DESC LIMIT 5";
+        return {
+            sql: "SELECT name, SUM(num) AS total FROM birth_names GROUP BY name LIMIT 5",
+            chartType: "bar",
+            groupby: ["name"],
+            metric: "sum__num"
+        };
     }
 }
 
-module.exports = { generateSQL };
+module.exports = { generateAIConfig };

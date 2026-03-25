@@ -6,7 +6,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const { generateSQL } = require('./llm');
+const { generateAIConfig } = require('./llm');
 const {
   runSQL,
   createChart,
@@ -22,12 +22,14 @@ app.post('/ask', async (req, res) => {
       return res.status(400).json({ error: "Query required" });
     }
 
-    // 🧠 Generate SQL
-    let sql = await generateSQL(query);
+    // 🧠 AI decides everything
+    const config = await generateAIConfig(query);
+
+    let sql = config.sql;
 
     console.log("🤖 SQL:", sql);
+    console.log("🤖 Chart:", config.chartType);
 
-    // 🔒 Safety
     if (!sql.toLowerCase().startsWith("select")) {
       throw new Error("Only SELECT allowed");
     }
@@ -36,43 +38,30 @@ app.post('/ask', async (req, res) => {
       sql += " LIMIT 1000";
     }
 
-    console.log("📌 Final SQL:", sql);
-
-    // 📊 Chart type detection (FIX for Vue)
-    let chartType = "bar";
-    if (sql.toLowerCase().includes("year")) {
-      chartType = "line";
-    }
-
     // 🧠 Run SQL
     const { data, token } = await runSQL(sql);
 
-// 1. Create chart
-    const chartId = await createChart(token, query);
+    // 🚀 Create chart using AI config
+    const chartId = await createChart(token, config);
 
-// 2. Create dashboard
+    // 🚀 Dashboard
     const dashboardId = await createDashboard(token);
 
-// 3. Attach chart (THIS DOES EVERYTHING NOW)
     await addChartToDashboard(dashboardId, chartId, token);
 
     const dashboardUrl = `http://localhost:8088/superset/dashboard/${dashboardId}/`;
 
     res.json({
       sql,
+      chartType: config.chartType,
       data,
-      chartType,
-      chartId,
-      dashboardId,
       dashboardUrl
     });
 
   } catch (err) {
     console.error("❌ ERROR:", err.message);
 
-    res.status(500).json({
-      error: err.message
-    });
+    res.status(500).json({ error: err.message });
   }
 });
 
