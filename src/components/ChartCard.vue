@@ -111,59 +111,126 @@ export default {
   },
   methods: {
     getChartOptions() {
-      const { data, chartType } = this.chartData;
+      const { data: raw, chartType } = this.chartData;
+
+      // ✅ FIX 1: extract actual array safely
+      const data = raw?.data || [];
+
+      if (!Array.isArray(data) || data.length === 0) {
+        return {};
+      }
+
       let options = {
         backgroundColor: 'transparent',
         tooltip: { trigger: 'axis' },
         grid: { top: 30, right: 20, bottom: 30, left: 50, containLabel: true }
       };
 
+      // 🔁 Common helpers
+      const getX = (item) => item.name || item.category || item.date || item.year || Object.values(item)[0];
+      const getY = (item) => item.total ?? item.value ?? Object.values(item)[1];
+
+      // 📈 LINE
       if (chartType === 'line') {
-        const xAxisData = data.map(item => item.date || item.month || item.name || Object.values(item)[0]);
-        const seriesData = data.map(item => item.value || Object.values(item)[1]);
+        const xAxisData = data.map(getX);
+        const seriesData = data.map(getY);
+
         options = {
           ...options,
-          xAxis: { type: 'category', data: xAxisData, axisLine: { lineStyle: { color: this.store.isDarkMode ? '#4b5563' : '#cbd5e1' } } },
-          yAxis: { type: 'value', splitLine: { lineStyle: { color: this.store.isDarkMode ? '#374151' : '#f1f5f9' } } },
+          xAxis: {
+            type: 'category',
+            data: xAxisData,
+            axisLine: {
+              lineStyle: {
+                color: this.store?.isDarkMode ? '#4b5563' : '#cbd5e1'
+              }
+            }
+          },
+          yAxis: {
+            type: 'value',
+            splitLine: {
+              lineStyle: {
+                color: this.store?.isDarkMode ? '#374151' : '#f1f5f9'
+              }
+            }
+          },
           series: [{
-            data: seriesData, type: 'line', smooth: true,
-            areaStyle: {
-              opacity: 0.1,
-              color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                { offset: 0, color: '#4f46e5' }, { offset: 1, color: '#4f46e500' }
-              ])
-            },
+            data: seriesData,
+            type: 'line',
+            smooth: true,
             lineStyle: { color: '#4f46e5', width: 3 },
             itemStyle: { color: '#4f46e5' }
           }]
         };
-      } else if (chartType === 'bar') {
-         const xAxisData = data.map(item => item.category || item.name || Object.values(item)[0]);
-         const seriesData = data.map(item => item.value || Object.values(item)[1]);
-         options = {
-           ...options,
-           xAxis: { type: 'category', data: xAxisData, axisLabel: { interval: 0, rotate: 30 }, axisLine: { lineStyle: { color: this.store.isDarkMode ? '#4b5563' : '#cbd5e1' } } },
-           yAxis: { type: 'value', splitLine: { lineStyle: { color: this.store.isDarkMode ? '#374151' : '#f1f5f9' } } },
-           series: [{
-             data: seriesData, type: 'bar',
-             itemStyle: { color: '#3b82f6', borderRadius: [4, 4, 0, 0] },
-             barWidth: '40%'
-           }]
-         };
-      } else if (chartType === 'pie') {
+      }
+
+      // 📊 BAR
+      else if (chartType === 'bar') {
+        const xAxisData = data.map(getX);
+        const seriesData = data.map(getY);
+
         options = {
-          backgroundColor: 'transparent',
-          tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
-          legend: { orient: 'vertical', left: 'left', top: 'center', textStyle: { color: this.store.isDarkMode ? '#e5e7eb' : '#374151' } },
+          ...options,
+          xAxis: {
+            type: 'category',
+            data: xAxisData,
+            axisLabel: { interval: 0, rotate: 30 },
+            axisLine: {
+              lineStyle: {
+                color: this.store?.isDarkMode ? '#4b5563' : '#cbd5e1'
+              }
+            }
+          },
+          yAxis: {
+            type: 'value',
+            splitLine: {
+              lineStyle: {
+                color: this.store?.isDarkMode ? '#374151' : '#f1f5f9'
+              }
+            }
+          },
           series: [{
-            type: 'pie', radius: ['40%', '70%'], avoidLabelOverlap: false,
-            itemStyle: { borderRadius: 10, borderColor: this.store.isDarkMode ? '#1f2937' : '#fff', borderWidth: 2 },
-            label: { show: false },
-            emphasis: { label: { show: true, fontSize: 14, fontWeight: 'bold' } },
-            data: data.map(item => ({ name: item.name || item.category, value: item.value }))
+            data: seriesData,
+            type: 'bar',
+            itemStyle: {
+              color: '#3b82f6',
+              borderRadius: [4, 4, 0, 0]
+            },
+            barWidth: '40%'
           }]
         };
       }
+
+      // 🥧 PIE
+      else if (chartType === 'pie') {
+        options = {
+          backgroundColor: 'transparent',
+          tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
+          legend: {
+            orient: 'vertical',
+            left: 'left',
+            top: 'center',
+            textStyle: {
+              color: this.store?.isDarkMode ? '#e5e7eb' : '#374151'
+            }
+          },
+          series: [{
+            type: 'pie',
+            radius: ['40%', '70%'],
+            avoidLabelOverlap: false,
+            itemStyle: {
+              borderRadius: 10,
+              borderColor: this.store?.isDarkMode ? '#1f2937' : '#fff',
+              borderWidth: 2
+            },
+            data: data.map(item => ({
+              name: getX(item),
+              value: getY(item)
+            }))
+          }]
+        };
+      }
+
       return options;
     },
     initChart() {

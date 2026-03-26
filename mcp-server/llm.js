@@ -25,12 +25,11 @@ Return ONLY JSON:
 }
 
 Rules:
-- Use SUM(num) as metric
-- Alias SUM(num) as total
-- If user asks distribution → pie chart
-- If trend or time → line chart
-- Else → bar chart
-- Respect user request (if user says pie → pie)
+- Use SUM(num)
+- Alias as total
+- pie → distribution
+- line → time
+- else → bar
 
 User Query:
 "${query}"
@@ -45,10 +44,7 @@ User Query:
             response.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
         const cleaned = cleanJSON(raw);
-
-        const parsed = JSON.parse(cleaned);
-
-        return parsed;
+        return JSON.parse(cleaned);
 
     } catch (e) {
         console.error("❌ AI fallback");
@@ -56,8 +52,7 @@ User Query:
         return {
             sql: "SELECT name, SUM(num) AS total FROM birth_names GROUP BY name LIMIT 5",
             chartType: "bar",
-            groupby: ["name"],
-            metric: "sum__num"
+            groupby: ["name"]
         };
     }
 }

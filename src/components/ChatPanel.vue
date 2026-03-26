@@ -92,7 +92,7 @@ export default {
   name: 'ChatPanel',
   data() {
     return {
-      inputText: '',
+      inputText: 'top 4 names',
       isLoading: false
     };
   },
