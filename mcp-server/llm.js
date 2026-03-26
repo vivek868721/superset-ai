@@ -5,34 +5,46 @@ const genAI = new GoogleGenAI({
 });
 
 function cleanJSON(text) {
-    return text.replace(/```json/g, "").replace(/```/g, "").trim();
+    return text
+        .replace(/```json/g, "")
+        .replace(/```/g, "")
+        .trim();
+}
+
+function fallback() {
+    return {
+        sql: "SELECT name, SUM(num) AS total FROM birth_names GROUP BY name ORDER BY total DESC LIMIT 5",
+        chartType: "bar",
+        groupby: ["name"]
+    };
 }
 
 async function generateAIConfig(query) {
     try {
         const prompt = `
-You are an AI analytics engine.
+You are an analytics AI.
 
 Table: birth_names(name, gender, num, year)
 
-Return ONLY JSON:
+Return ONLY VALID JSON:
 
 {
   "sql": "...",
   "chartType": "bar | line | pie",
-  "groupby": ["column"],
-  "metric": "sum__num"
+  "groupby": ["column"]
 }
 
 Rules:
-- Use SUM(num)
-- Alias as total
+- ALWAYS use SUM(num) as total
+- ALWAYS alias as total
+- Respect user LIMIT (top N)
+- If no limit → use LIMIT 5
 - pie → distribution
 - line → time
 - else → bar
 
 User Query:
-"${query}"
+${query}
 `;
 
         const response = await genAI.models.generateContent({
@@ -40,20 +52,19 @@ User Query:
             contents: prompt
         });
 
-        const raw =
-            response.candidates?.[0]?.content?.parts?.[0]?.text || "";
-
+        const raw = response.candidates?.[0]?.content?.parts?.[0]?.text || "";
         const cleaned = cleanJSON(raw);
-        return JSON.parse(cleaned);
-
-    } catch (e) {
-        console.error("❌ AI fallback");
+        const parsed = JSON.parse(cleaned);
 
         return {
-            sql: "SELECT name, SUM(num) AS total FROM birth_names GROUP BY name LIMIT 5",
-            chartType: "bar",
-            groupby: ["name"]
+            sql: parsed.sql || fallback().sql,
+            chartType: parsed.chartType || "bar",
+            groupby: parsed.groupby || ["name"]
         };
+
+    } catch (e) {
+        console.error("❌ AI ERROR:", e.message);
+        return fallback();
     }
 }
 
