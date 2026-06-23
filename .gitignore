@@ -1,27 +1,52 @@
+# Dependencies
+node_modules/
+venv/
+env/
+*.egg-info/
+__pycache__/
+*.pyc
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Build outputs
+dist/
+build/
+*.egg
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
 # Logs
-logs
-*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
+*.log
 
-node_modules
-dist
-dist-ssr
-*.local
+# Temporary
+*.tmp
+.cache/
+temp/
 
-# Editor directories and files
-.vscode/*
-.env
-•.env
-mcp-server/.env
-!.vscode/extensions.json
-.idea
+# OS
+Thumbs.db
 .DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+
+# Project specific
+superset.db
+superset_config.py
+superset.log
+superset-err.log
+backend.log
+backend-err.log
+frontend.log
+superset-install.log
+check_db.py
+check_cols.py

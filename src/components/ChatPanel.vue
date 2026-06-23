@@ -19,9 +19,9 @@
         <p class="text-sm">Ask me to visualize your data!</p>
         <p class="text-xs mt-2">Examples:</p>
         <ul class="text-xs mt-1 space-y-2">
-          <li class="cursor-pointer hover:text-indigo-500 transition-colors inline-block bg-white dark:bg-gray-800 px-3 py-1.5 rounded-full shadow-sm border border-gray-100 dark:border-gray-700" @click="setInput('Show me monthly revenue')">"Show me monthly revenue"</li>
-          <li class="cursor-pointer hover:text-indigo-500 transition-colors inline-block bg-white dark:bg-gray-800 px-3 py-1.5 rounded-full shadow-sm border border-gray-100 dark:border-gray-700" @click="setInput('Sales by category')">"Sales by category"</li>
-          <li class="cursor-pointer hover:text-indigo-500 transition-colors inline-block bg-white dark:bg-gray-800 px-3 py-1.5 rounded-full shadow-sm border border-gray-100 dark:border-gray-700" @click="setInput('Users by region')">"Users by region"</li>
+          <li class="cursor-pointer hover:text-indigo-500 transition-colors inline-block bg-white dark:bg-gray-800 px-3 py-1.5 rounded-full shadow-sm border border-gray-100 dark:border-gray-700" @click="setInput('Top 10 baby names')">"Top 10 baby names"</li>
+          <li class="cursor-pointer hover:text-indigo-500 transition-colors inline-block bg-white dark:bg-gray-800 px-3 py-1.5 rounded-full shadow-sm border border-gray-100 dark:border-gray-700" @click="setInput('Births by year as a line chart')">"Births by year"</li>
+          <li class="cursor-pointer hover:text-indigo-500 transition-colors inline-block bg-white dark:bg-gray-800 px-3 py-1.5 rounded-full shadow-sm border border-gray-100 dark:border-gray-700" @click="setInput('Gender distribution as a pie chart')">"Gender distribution"</li>
         </ul>
       </div>
 
@@ -45,7 +45,7 @@
             <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
               <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
             </svg>
-            Chart added to dashboard
+            Chart created
           </div>
         </div>
       </div>
@@ -131,16 +131,13 @@ export default {
         // Call API
         const response = await askAI(text);
 
-        // Add chart to dashboard
+        // Add chart to dashboard (each chart keeps its own sql, chartType, data)
         const chartId = Date.now().toString();
         this.store.addChart({
           id: chartId,
           ...response,
           title: text // Use the user's query as the title
         });
-
-        // Update SQL
-        this.store.setCurrentSql(response.sql);
 
         // Add AI response
         this.store.addMessage({

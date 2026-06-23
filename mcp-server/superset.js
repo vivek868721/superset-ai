@@ -11,7 +11,7 @@ const SUPERSET_URL = process.env.SUPERSET_URL;
 const USERNAME = process.env.SUPERSET_USERNAME;
 const PASSWORD = process.env.SUPERSET_PASSWORD;
 const DATABASE_ID = process.env.SUPERSET_DATABASE_ID;
-const DATASET_ID = parseInt(process.env.DATASET_ID);
+const DATASET_ID = parseInt(process.env.DATASET_ID) || 16;
 
 // 🔐 Login
 async function login() {
@@ -45,7 +45,7 @@ async function runSQL(sql) {
         {
             database_id: parseInt(DATABASE_ID),
             sql,
-            schema: "public",
+            schema: "main",
             runAsync: false,
             expand_data: true
         },
@@ -63,39 +63,54 @@ async function runSQL(sql) {
 // 📊 Create Chart
 async function createChart(token, csrfToken, config = {}) {
     const chartType = config.chartType || "bar";
-    const groupby = config.groupby || ["name"];
+    const groupby = (config.groupby && config.groupby.length) ? config.groupby : ["name"];
 
     const limitMatch = config.sql?.match(/limit\s+(\d+)/i);
-    const limit = limitMatch ? parseInt(limitMatch[1]) : 5;
+    const limit = limitMatch ? parseInt(limitMatch[1]) : 10;
 
+    // Single adhoc metric: SUM(num)
+    const metric = {
+        expressionType: "SQL",
+        sqlExpression: "SUM(num)",
+        label: "total"
+    };
+
+    const base = {
+        datasource: `${DATASET_ID}__table`,
+        row_limit: limit,
+        color_scheme: "supersetColors"
+    };
+
+    // Map friendly chart type -> a valid Superset 6 viz_type + form_data
+    let vizType;
     let form_data;
 
     if (chartType === "pie") {
+        vizType = "pie";
         form_data = {
-            datasource: `${DATASET_ID}__table`,
-            viz_type: "pie",
+            ...base,
+            viz_type: vizType,
             groupby,
-            metric: {
-                expressionType: "SQL",
-                sqlExpression: "SUM(num)",
-                label: "total"
-            },
-            row_limit: limit,
-            color_scheme: "supersetColors"
+            metric
+        };
+    } else if (chartType === "line") {
+        vizType = "echarts_timeseries_line";
+        form_data = {
+            ...base,
+            viz_type: vizType,
+            x_axis: groupby[0],
+            groupby: [],
+            metrics: [metric]
         };
     } else {
+        // bar + anything else -> categorical bar
+        vizType = "echarts_timeseries_bar";
         form_data = {
-            datasource: `${DATASET_ID}__table`,
-            viz_type: chartType,
-            groupby,
-            metrics: [{
-                expressionType: "SQL",
-                sqlExpression: "SUM(num)",
-                label: "total"
-            }],
+            ...base,
+            viz_type: vizType,
             x_axis: groupby[0],
-            row_limit: limit,
-            color_scheme: "supersetColors"
+            groupby: [],
+            metrics: [metric]
         };
     }
 
@@ -103,7 +118,7 @@ async function createChart(token, csrfToken, config = {}) {
         `${SUPERSET_URL}/api/v1/chart/`,
         {
             slice_name: `AI ${chartType} Chart`,
-            viz_type: chartType,
+            viz_type: vizType,
             datasource_id: DATASET_ID,
             datasource_type: "table",
             params: JSON.stringify(form_data)
@@ -134,6 +149,22 @@ async function createDashboard(token, csrfToken) {
         }
     );
     return res.data.id;
+}
+
+// 🚀 Publish: create chart + dashboard + attach, return the dashboard URL
+async function publishToSuperset(config = {}) {
+    const token = await login();
+    const csrfToken = await getCSRFToken(token);
+
+    const chartId = await createChart(token, csrfToken, config);
+    const dashboardId = await createDashboard(token, csrfToken);
+    await addChartToDashboard(dashboardId, chartId, token, csrfToken);
+
+    return {
+        dashboardId,
+        chartId,
+        dashboardUrl: `${SUPERSET_URL}/superset/dashboard/${dashboardId}/`
+    };
 }
 
 // 🔥 Attach chart
@@ -183,5 +214,6 @@ module.exports = {
     runSQL,
     createChart,
     createDashboard,
-    addChartToDashboard
+    addChartToDashboard,
+    publishToSuperset
 };
