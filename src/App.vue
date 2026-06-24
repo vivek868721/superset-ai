@@ -49,7 +49,7 @@ export default {
       isSidebarOpen: false
     };
   },
-  computed: {
+  computed: {//computed
     store() {
       return store;
     }
